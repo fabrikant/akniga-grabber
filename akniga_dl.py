@@ -2,6 +2,7 @@ import sys
 import subprocess
 import json
 import brotli
+import shutil
 from pathlib import Path
 from pathvalidate import sanitize_filename
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -18,10 +19,13 @@ book_url = sys.argv[1]
 output_folder = sys.argv[2]
 
 if __name__ == '__main__':
+    print('starting browser')
     service = ChromeService(executable_path=ChromeDriverManager().install())
     options = webdriver.ChromeOptions()
+    options.add_argument('headless')
 
     driver = webdriver.Chrome(service=service, options=options)
+    print('parsing the page: ' + book_url)
     driver.get(book_url)
 
     all_requests = driver.requests
@@ -42,6 +46,8 @@ if __name__ == '__main__':
         if 'm3u8' in request.url:
             m3u8_url = request.url
             break
+
+    driver.quit()
 
     if not m3u8_url:
         print('m3u8 file not found. Exiting...')
@@ -70,4 +76,4 @@ if __name__ == '__main__':
                           str(chapter['time_from_start']), '-to', str(chapter['time_finish']), f'{chapter_path}.mp3']
         subprocess.run(ffmpeg_command)
 
-    driver.quit()
+    shutil.rmtree(full_book_folder, ignore_errors=True)
