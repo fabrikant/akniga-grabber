@@ -1,3 +1,5 @@
+It's a fork of https://github.com/Frutto-Hub/akniga.org_book_downloader
+
 # Akniga.org book downloader
 Akniga.org book downloader is a simple python script for downloading books from akniga.org.
 
