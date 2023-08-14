@@ -3,6 +3,7 @@ import subprocess
 import json
 import brotli
 import shutil
+import requests
 from pathlib import Path
 from pathvalidate import sanitize_filename
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -10,15 +11,22 @@ from seleniumwire import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 
 # check command line agruments
-if len(sys.argv) != 3:
-    print("usage: python akniga_dl.py <book_url> <output_folder>")
+if len(sys.argv) < 2:
+    print("usage: python akniga_dl.py <book_url> [<output_folder>]")
     exit(1)
 
 # parse command line arguments
 book_url = sys.argv[1]
-output_folder = sys.argv[2]
+if len(sys.argv) > 2:
+    output_folder = sys.argv[2]
+else:
+    output_folder = '.'
 
 if __name__ == '__main__':
+
+    # create output folder
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+
     print('starting browser')
     service = ChromeService(executable_path=ChromeDriverManager().install())
     options = webdriver.ChromeOptions()
@@ -65,6 +73,13 @@ if __name__ == '__main__':
     full_book_folder = book_folder / 'full book'
     Path(full_book_folder).mkdir(exist_ok=True)
 
+    # download cover picture
+    res = requests.get(book_json['preview'], stream = True)
+    cover_file_name = full_book_folder / 'cover.jpg'
+    if res.status_code == 200:
+        with open(cover_file_name,'wb') as f:
+            shutil.copyfileobj(res.raw, f)
+
     full_book_file_path = full_book_folder / book_json['title']
     ffmpeg_command = ['ffmpeg', '-i', m3u8_url, f'{full_book_file_path}.mp3']
     subprocess.run(ffmpeg_command)
@@ -72,8 +87,15 @@ if __name__ == '__main__':
     # separate audio file into chapters
     for chapter in json.loads(book_json['items']):
         chapter_path = book_folder / sanitize_filename(chapter['title'])
-        ffmpeg_command = ['ffmpeg', '-i', f'{full_book_file_path}.mp3', '-acodec', 'copy', '-ss',
-                          str(chapter['time_from_start']), '-to', str(chapter['time_finish']), f'{chapter_path}.mp3']
+        if Path(cover_file_name).exists():
+            ffmpeg_command = ['ffmpeg', '-i', f'{full_book_file_path}.mp3',
+                              '-i', cover_file_name, '-map_metadata', '0', '-map', '0', '-map', '1',
+                              '-acodec', 'copy', '-ss', str(chapter['time_from_start']),
+                              '-to', str(chapter['time_finish']), f'{chapter_path}.mp3']
+        else:
+            ffmpeg_command = ['ffmpeg', '-i', f'{full_book_file_path}.mp3', '-acodec', 'copy', '-ss',
+                              str(chapter['time_from_start']), '-to', str(chapter['time_finish']),
+                              f'{chapter_path}.mp3']
         subprocess.run(ffmpeg_command)
 
     shutil.rmtree(full_book_folder, ignore_errors=True)
