@@ -83,7 +83,7 @@ def download_book(book_url, output_folder):
 
     # download full audio file
     full_book_file_path = full_book_folder / book_json['title']
-    ffmpeg_command = ['ffmpeg', '-y', '-i', m3u8_url, f'{full_book_file_path}.mp3']
+    ffmpeg_command = ['ffmpeg', '-y', '-hide_banner', '-i', m3u8_url, f'{full_book_file_path}.mp3']
     subprocess.run(ffmpeg_command)
 
     # separate audio file into chapters
@@ -92,13 +92,13 @@ def download_book(book_url, output_folder):
         chapter_path = book_folder / sanitize_filename(chapter['title'])
 
         # cut the chapter
-        command_cut = ['ffmpeg', '-y', '-i', f'{full_book_file_path}.mp3', '-codec', 'copy',
+        command_cut = ['ffmpeg', '-y', '-hide_banner', '-i', f'{full_book_file_path}.mp3', '-codec', 'copy',
                        '-ss', str(chapter['time_from_start']), '-to', str(chapter['time_finish']),
                        f'{chapter_path}_no_meta.mp3']
         subprocess.run(command_cut)
 
         # add metadata
-        command_metadata = ['ffmpeg', '-y', '-i', f'{chapter_path}_no_meta.mp3']
+        command_metadata = ['ffmpeg', '-y', '-hide_banner', '-i', f'{chapter_path}_no_meta.mp3']
         if Path(cover_file_name).exists():
             command_metadata = command_metadata + ['-i', cover_file_name, '-map', '0:0', '-map', '1:0']
         command_metadata = command_metadata + ['-codec', 'copy', '-id3v2_version', '3',
