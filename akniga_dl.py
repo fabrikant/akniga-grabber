@@ -1,3 +1,4 @@
+import os
 import sys
 import subprocess
 import json
@@ -10,22 +11,25 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from seleniumwire import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 
-# check command line agruments
-if len(sys.argv) < 2:
-    print("usage: python akniga_dl.py <book_url> [<output_folder>]")
-    exit(1)
 
-# parse command line arguments
-book_url = sys.argv[1]
-if len(sys.argv) > 2:
-    output_folder = sys.argv[2]
-else:
-    output_folder = '.'
+def download_cover(cover_url, cover_file_name):
+    big_picture_url = cover_url.replace("100x100crop", "400x")
+    # try to download big picture
+    res = requests.get(big_picture_url, stream=True)
+    if res.status_code == 200:
+        with open(cover_file_name, 'wb') as f:
+            shutil.copyfileobj(res.raw, f)
+    else:
+        # big picture not found, try to download preview
+        res = requests.get(cover_url, stream=True)
+        if res.status_code == 200:
+            with open(cover_file_name, 'wb') as f:
+                shutil.copyfileobj(res.raw, f)
 
-if __name__ == '__main__':
 
+def download_book(book_url, output_folder):
     # create output folder
-    Path(output_folder).mkdir(parents=True, exist_ok=True)
+    Path(output_folder).mkdir(exist_ok=True)
 
     print('starting browser')
     service = ChromeService(executable_path=ChromeDriverManager().install())
@@ -63,7 +67,6 @@ if __name__ == '__main__':
 
     # sanitize (make valid) book title
     book_json['title'] = sanitize_filename(book_json['title'])
-
     book_folder = Path(output_folder) / book_json['title']
 
     # create new folder with book title
@@ -74,28 +77,53 @@ if __name__ == '__main__':
     Path(full_book_folder).mkdir(exist_ok=True)
 
     # download cover picture
-    res = requests.get(book_json['preview'], stream = True)
+    cover_url = book_json['preview']
     cover_file_name = full_book_folder / 'cover.jpg'
-    if res.status_code == 200:
-        with open(cover_file_name,'wb') as f:
-            shutil.copyfileobj(res.raw, f)
+    download_cover(cover_url, cover_file_name)
 
+    # download full audio file
     full_book_file_path = full_book_folder / book_json['title']
-    ffmpeg_command = ['ffmpeg', '-i', m3u8_url, f'{full_book_file_path}.mp3']
+    ffmpeg_command = ['ffmpeg', '-y', '-i', m3u8_url, f'{full_book_file_path}.mp3']
     subprocess.run(ffmpeg_command)
 
     # separate audio file into chapters
+    print(book_json)
     for chapter in json.loads(book_json['items']):
         chapter_path = book_folder / sanitize_filename(chapter['title'])
-        if Path(cover_file_name).exists():
-            ffmpeg_command = ['ffmpeg', '-i', f'{full_book_file_path}.mp3',
-                              '-i', cover_file_name, '-map_metadata', '0', '-map', '0', '-map', '1',
-                              '-acodec', 'copy', '-ss', str(chapter['time_from_start']),
-                              '-to', str(chapter['time_finish']), f'{chapter_path}.mp3']
-        else:
-            ffmpeg_command = ['ffmpeg', '-i', f'{full_book_file_path}.mp3', '-acodec', 'copy', '-ss',
-                              str(chapter['time_from_start']), '-to', str(chapter['time_finish']),
-                              f'{chapter_path}.mp3']
-        subprocess.run(ffmpeg_command)
 
+        # cut the chapter
+        command_cut = ['ffmpeg', '-y', '-i', f'{full_book_file_path}.mp3', '-codec', 'copy',
+                       '-ss', str(chapter['time_from_start']), '-to', str(chapter['time_finish']),
+                       f'{chapter_path}_no_meta.mp3']
+        subprocess.run(command_cut)
+
+        # add metadata
+        command_metadata = ['ffmpeg', '-y', '-i', f'{chapter_path}_no_meta.mp3']
+        if Path(cover_file_name).exists():
+            command_metadata = command_metadata + ['-i', cover_file_name, '-map', '0:0', '-map', '1:0']
+        command_metadata = command_metadata + ['-codec', 'copy', '-id3v2_version', '3',
+                                               '-metadata', 'title=' + chapter['title'],
+                                               '-metadata', 'album=' + book_json['titleonly'],
+                                               '-metadata', 'artist=' + book_json['author'],
+                                               f'{chapter_path}.mp3']
+        subprocess.run(command_metadata)
+        # remove no_meta file
+        os.remove(f'{chapter_path}_no_meta.mp3')
+
+    # remove full book folder
     shutil.rmtree(full_book_folder, ignore_errors=True)
+
+
+if __name__ == '__main__':
+    # check command line agruments
+    if len(sys.argv) < 2:
+        print("usage: python akniga_dl.py <book_url> [<output_folder>]")
+        exit(1)
+
+    # parse command line arguments
+    if len(sys.argv) > 2:
+        out_folder = sys.argv[2]
+    else:
+        out_folder = '.'
+
+    download_book(sys.argv[1], out_folder)
