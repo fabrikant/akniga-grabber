@@ -11,7 +11,10 @@ pip install -r requirements.txt
 ```
 or start script 
 ```
+#Linux
 ./install.sh
+#Windows
+insatll.bat
 ```
 
 
@@ -24,15 +27,21 @@ ffmpeg is also required
 GUI interface
 
 ```
-source .venv/bin/activate
-python akniga_gui.py
+#Linux
+./GUI.sh
+#Windows
+GUI.bat
 ```
 
 CLI interface:
 
 ```
+#Linux
 source .venv/bin/activate
 python akniga_dl.py <book_url> [<output_folder>]
+#Windows
+.venv\Scripts\activate
+python akniga_dlpy <book_url> [<output_folder>]
 ```
 Where:
 - <book_url> is a url to book you want to download
