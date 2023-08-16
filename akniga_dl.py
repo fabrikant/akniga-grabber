@@ -87,7 +87,6 @@ def download_book(book_url, output_folder):
     subprocess.run(ffmpeg_command)
 
     # separate audio file into chapters
-    print(book_json)
     for chapter in json.loads(book_json['items']):
         chapter_path = book_folder / sanitize_filename(chapter['title'])
 
