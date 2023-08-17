@@ -14,13 +14,15 @@ class MainWindow(QMainWindow):
     def onButtonOpenPathClick(self):
         path = QFileDialog.getExistingDirectory(self, caption='Open directory')
         self.linePath.setText(path)
-        print(self.linePath.text())
 
     def onButtonDownloadClick(self):
         sub_window = ProcessWindow(self.lineURL.text(), self.linePath.text())
         self.mdiArea.addSubWindow(sub_window)
         sub_window.show()
 
+    def onButtonPaste(self):
+        if 'akniga.org' in app.clipboard().text():
+            self.lineURL.setText(app.clipboard().text())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

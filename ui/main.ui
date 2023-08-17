@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ui version="4.0">
+<ui version="4.0" idbasedtr="true">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
   <property name="geometry">
@@ -40,21 +40,41 @@
         <property name="horizontalSpacing">
          <number>6</number>
         </property>
-        <item row="3" column="0" colspan="3">
-         <widget class="QPushButton" name="buttonDownload">
+        <item row="3" column="0">
+         <widget class="QLabel" name="labelPath">
           <property name="text">
-           <string>Запустить скачивание</string>
+           <string>Path</string>
           </property>
          </widget>
         </item>
-        <item row="2" column="2">
+        <item row="4" column="0" colspan="2">
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="3" column="2">
          <widget class="QPushButton" name="buttonOpenPath">
           <property name="text">
-           <string>Выбрать</string>
+           <string>Open directory</string>
           </property>
           <property name="icon">
            <iconset theme="Open">
             <normaloff>../../</normaloff>../../</iconset>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="2">
+         <widget class="QPushButton" name="buttonDownload">
+          <property name="text">
+           <string>Start download</string>
           </property>
          </widget>
         </item>
@@ -65,16 +85,16 @@
           </property>
          </widget>
         </item>
-        <item row="0" column="1" colspan="2">
-         <widget class="QLineEdit" name="lineURL"/>
-        </item>
-        <item row="2" column="1">
+        <item row="3" column="1">
          <widget class="QLineEdit" name="linePath"/>
         </item>
-        <item row="2" column="0">
-         <widget class="QLabel" name="labelPath">
+        <item row="0" column="1">
+         <widget class="QLineEdit" name="lineURL"/>
+        </item>
+        <item row="0" column="2">
+         <widget class="QPushButton" name="buttonPaste">
           <property name="text">
-           <string>Каталог</string>
+           <string>Paste from clipboard</string>
           </property>
          </widget>
         </item>
@@ -96,51 +116,60 @@
      <height>20</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menu">
+   <widget class="QMenu" name="File">
     <property name="title">
-     <string>Файл</string>
+     <string>File</string>
     </property>
     <addaction name="actionExit"/>
    </widget>
-   <widget class="QMenu" name="menu_2">
+   <widget class="QMenu" name="Window">
     <property name="title">
-     <string>Окно</string>
+     <string>Window</string>
     </property>
+    <addaction name="actionNext"/>
+    <addaction name="actionPrevious"/>
     <addaction name="actionCascade"/>
     <addaction name="actionTile"/>
    </widget>
-   <addaction name="menu"/>
-   <addaction name="menu_2"/>
+   <addaction name="File"/>
+   <addaction name="Window"/>
   </widget>
   <action name="actionExit">
    <property name="text">
-    <string>Выход</string>
+    <string>Exit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+X</string>
+   </property>
+  </action>
+  <action name="actionNext">
+   <property name="text">
+    <string>Next</string>
+   </property>
+  </action>
+  <action name="actionPrevious">
+   <property name="text">
+    <string>Previous</string>
    </property>
   </action>
   <action name="actionCascade">
    <property name="text">
-    <string>Каскадом</string>
-   </property>
-   <property name="toolTip">
-    <string>Каскадом</string>
+    <string>Cascade</string>
    </property>
   </action>
   <action name="actionTile">
    <property name="text">
-    <string>Плиткой</string>
-   </property>
-  </action>
-  <action name="action_3">
-   <property name="text">
-    <string>Каскадом</string>
-   </property>
-  </action>
-  <action name="action_4">
-   <property name="text">
-    <string>Плиткой</string>
+    <string>Tile</string>
    </property>
   </action>
  </widget>
+ <tabstops>
+  <tabstop>lineURL</tabstop>
+  <tabstop>linePath</tabstop>
+  <tabstop>buttonDownload</tabstop>
+  <tabstop>buttonPaste</tabstop>
+  <tabstop>buttonOpenPath</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
@@ -176,6 +205,22 @@
    </hints>
   </connection>
   <connection>
+   <sender>buttonPaste</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>onButtonPaste()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>463</x>
+     <y>47</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>264</x>
+     <y>177</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
    <sender>actionExit</sender>
    <signal>triggered()</signal>
    <receiver>MainWindow</receiver>
@@ -188,6 +233,38 @@
     <hint type="destinationlabel">
      <x>264</x>
      <y>177</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionNext</sender>
+   <signal>triggered()</signal>
+   <receiver>mdiArea</receiver>
+   <slot>activateNextSubWindow()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>264</x>
+     <y>232</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionPrevious</sender>
+   <signal>triggered()</signal>
+   <receiver>mdiArea</receiver>
+   <slot>activatePreviousSubWindow()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>264</x>
+     <y>232</y>
     </hint>
    </hints>
   </connection>
@@ -227,5 +304,6 @@
  <slots>
   <slot>onButtonOpenPathClick()</slot>
   <slot>onButtonDownloadClick()</slot>
+  <slot>onButtonPaste()</slot>
  </slots>
 </ui>
