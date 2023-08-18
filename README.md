@@ -18,7 +18,7 @@ Akniga.org book downloader is a python script and GUI for downloading books from
 
 or use command
 ```
-git clone https://github.com/fabrikant/akniga.org_book_downloader
+git clone https://github.com/fabrikant/akniga-grabber
 ```
 Change to the directory with the file akniga_dl.py and install all dependencies:
 

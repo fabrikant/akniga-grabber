@@ -5,7 +5,6 @@ from PyQt5.QtCore import QProcess
 
 class ProcessWindow(QMdiSubWindow):
 
-
     def __init__(self, url, path):
         super(ProcessWindow, self).__init__()
         self.process = None
