@@ -1,5 +1,5 @@
+import argparse
 import os
-import sys
 import subprocess
 import json
 import brotli
@@ -27,43 +27,44 @@ def download_cover(cover_url, cover_file_name):
                 shutil.copyfileobj(res.raw, f)
 
 
+def get_book_requests(book_url: str) -> list:
+    print("Getting book requests. Please wait...")
+    service = ChromeService(executable_path=ChromeDriverManager().install())
+    options = webdriver.ChromeOptions()
+    options.add_argument('headless')
+    with webdriver.Chrome(service=service, options=options) as driver:
+        driver.get(book_url)
+        result = driver.requests
+        driver.close()
+        return result
+
+
+def analyse_book_requests(book_requests: list) -> tuple:
+    print('Analysing book requests...')
+    try:
+        # find request with book json data
+        book_json_requests = [r for r in book_requests if r.method == 'POST' and r.path.startswith('/ajax/b/')]
+        # assert that we have only 1 request for book data found
+        assert len(book_json_requests) == 1, 'Error: Book data not found. Exiting.'
+        print('Book data found')
+        # find request with m3u8 file
+        m3u8_file_requests = [r for r in book_requests if 'm3u8' in r.url]
+        # assert that we have only 1 request for m3u8 file found
+        assert len(m3u8_file_requests) == 1, 'Error: m3u8 file request not found. Exiting.'
+        print('m3u8 file found')
+        book_json = json.loads(brotli.decompress(book_json_requests[0].response.body))
+        return book_json, m3u8_file_requests[0].url
+    except AssertionError as message:
+        print(message)
+        exit(1)
+
+
 def download_book(book_url, output_folder):
     # create output folder
     Path(output_folder).mkdir(exist_ok=True)
 
-    print('starting browser')
-    service = ChromeService(executable_path=ChromeDriverManager().install())
-    options = webdriver.ChromeOptions()
-    options.add_argument('headless')
-
-    driver = webdriver.Chrome(service=service, options=options)
-    print('parsing the page: ' + book_url)
-    driver.get(book_url)
-
-    all_requests = driver.requests
-
-    # find request with book json data
-    book_json_requests = [r for r in all_requests if r.method == 'POST' and r.path.startswith('/ajax/b/')]
-
-    # assert that we have only 1 request found
-    assert len(book_json_requests) == 1
-    book_json = json.loads(brotli.decompress(book_json_requests[0].response.body))
-
-    # add book id to book json dictionary for convenience
-    book_json['id'] = book_json_requests[0].url.split('/')[-1]
-
-    m3u8_url = ''
-    # find request for m3u8 file
-    for request in all_requests:
-        if 'm3u8' in request.url:
-            m3u8_url = request.url
-            break
-
-    driver.quit()
-
-    if not m3u8_url:
-        print('m3u8 file not found. Exiting...')
-        exit()
+    book_requests = get_book_requests(book_url)
+    book_json, m3u8_url = analyse_book_requests(book_requests)
 
     # sanitize (make valid) book title
     book_json['title'] = sanitize_filename(book_json['title'])
@@ -114,15 +115,10 @@ def download_book(book_url, output_folder):
 
 
 if __name__ == '__main__':
-    # check command line agruments
-    if len(sys.argv) < 2:
-        print("usage: python akniga_dl.py <book_url> [<output_folder>]")
-        exit(1)
+    parser = argparse.ArgumentParser(description='Download a book from akniga.org')
+    parser.add_argument('url', help='Book\'s url for downloading')
+    parser.add_argument('output', help='Absolute or relative path where book will be downloaded')
+    args = parser.parse_args()
+    print(args)
 
-    # parse command line arguments
-    if len(sys.argv) > 2:
-        out_folder = sys.argv[2]
-    else:
-        out_folder = '.'
-
-    download_book(sys.argv[1], out_folder)
+    download_book(args.url, args.output)

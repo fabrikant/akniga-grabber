@@ -47,13 +47,13 @@ CLI interface:
 ```
 #Linux
 source .venv/bin/activate
-python akniga_dl.py <book_url> [<output_folder>]
+python akniga_dl.py <book_url> <output_folder>
 #Windows
 .venv\Scripts\activate
-python akniga_dl.py <book_url> [<output_folder>]
+python akniga_dl.py <book_url> <output_folder>
 ```
 Where:
 - <book_url> is a url to book you want to download
-- <output_folder> is an absolute path to download folder (optional)
+- <output_folder> is an absolute path to download folder
 
 
