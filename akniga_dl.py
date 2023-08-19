@@ -112,6 +112,8 @@ def download_book(book_url, output_folder):
 
     # remove full book folder
     shutil.rmtree(full_book_folder, ignore_errors=True)
+    print('The book has been downloaded: {0}'.format(book_folder))
+    return book_folder
 
 
 if __name__ == '__main__':
