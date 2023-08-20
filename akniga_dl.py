@@ -12,9 +12,12 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from seleniumwire import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.ERROR
-)
+# logging.basicConfig(
+#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+# )
+# logging.basicConfig(
+#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# )
 logger = logging.getLogger(__name__)
 
 
@@ -68,13 +71,13 @@ def analyse_book_requests(book_requests: list) -> tuple:
 def download_book(book_url, output_folder):
 
     ffmpeg_log_level = 'fatal'
-    if logger.level == logging.DEBUG:
+    if logger.root.level == logging.DEBUG:
         ffmpeg_log_level = '‘debug'
-    elif logger.level == logging.INFO:
+    elif logger.root.level == logging.INFO:
         ffmpeg_log_level = 'info'
-    elif logger.level == logging.WARNING:
+    elif logger.root.level == logging.WARNING:
         ffmpeg_log_level = 'warning'
-    elif logger.level == logging.ERROR:
+    elif logger.root.level == logging.ERROR:
         ffmpeg_log_level = 'error'
 
     # create output folder
@@ -85,10 +88,13 @@ def download_book(book_url, output_folder):
 
     # sanitize (make valid) book title
     book_json['title'] = sanitize_filename(book_json['title'])
-    book_folder = Path(output_folder) / book_json['title']
+    book_json['titleonly'] = sanitize_filename(book_json['titleonly'])
+    book_json['author'] = sanitize_filename(book_json['author'])
+
+    book_folder = Path(output_folder) / book_json['author'] / book_json['titleonly']
 
     # create new folder with book title
-    Path(book_folder).mkdir(exist_ok=True)
+    Path(book_folder).mkdir(exist_ok=True, parents=True)
 
     # create full book folder, full book .mp3 file will be downloaded there
     full_book_folder = book_folder / 'full book'
@@ -137,7 +143,9 @@ def download_book(book_url, output_folder):
 
 
 if __name__ == '__main__':
-    logger.setLevel(logging.INFO)
+    logging.basicConfig(
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    )
     parser = argparse.ArgumentParser(description='Download a book from akniga.org')
     parser.add_argument('url', help='Book\'s url for downloading')
     parser.add_argument('output', help='Absolute or relative path where book will be downloaded')
