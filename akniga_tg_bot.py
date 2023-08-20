@@ -64,7 +64,7 @@ async def send_book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text('Для загрузки книги, пришлите ссылку на неё. Ссылка должна начинаться с: {0}'
-                                    .format(settings.message_substring))
+                                    .format(settings.site_url))
 
 
 def main() -> None:
@@ -73,7 +73,7 @@ def main() -> None:
 
     application.add_handler(MessageHandler(filters.TEXT & (
       filters.Entity(MessageEntity.URL) |
-      filters.Entity(MessageEntity.TEXT_LINK)) & filters.Regex(r'('+settings.message_substring+'\S)'), send_book))
+      filters.Entity(MessageEntity.TEXT_LINK)) & filters.Regex(r'('+settings.site_url+'\S)'), send_book))
 
     application.add_handler(MessageHandler(filters.ALL, intro))
 
