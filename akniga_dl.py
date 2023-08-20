@@ -5,11 +5,17 @@ import json
 import brotli
 import shutil
 import requests
+import logging
 from pathlib import Path
 from pathvalidate import sanitize_filename
 from selenium.webdriver.chrome.service import Service as ChromeService
 from seleniumwire import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.ERROR
+)
+logger = logging.getLogger(__name__)
 
 
 def download_cover(cover_url, cover_file_name):
@@ -28,7 +34,7 @@ def download_cover(cover_url, cover_file_name):
 
 
 def get_book_requests(book_url: str) -> list:
-    print("Getting book requests. Please wait...")
+    logger.info("Getting book requests. Please wait...")
     service = ChromeService(executable_path=ChromeDriverManager().install())
     options = webdriver.ChromeOptions()
     options.add_argument('headless')
@@ -40,26 +46,37 @@ def get_book_requests(book_url: str) -> list:
 
 
 def analyse_book_requests(book_requests: list) -> tuple:
-    print('Analysing book requests...')
+    logger.info('Analysing book requests...')
     try:
         # find request with book json data
         book_json_requests = [r for r in book_requests if r.method == 'POST' and r.path.startswith('/ajax/b/')]
         # assert that we have only 1 request for book data found
         assert len(book_json_requests) == 1, 'Error: Book data not found. Exiting.'
-        print('Book data found')
+        logger.info('Book data found')
         # find request with m3u8 file
         m3u8_file_requests = [r for r in book_requests if 'm3u8' in r.url]
         # assert that we have only 1 request for m3u8 file found
         assert len(m3u8_file_requests) == 1, 'Error: m3u8 file request not found. Exiting.'
-        print('m3u8 file found')
+        logger.info('m3u8 file found')
         book_json = json.loads(brotli.decompress(book_json_requests[0].response.body))
         return book_json, m3u8_file_requests[0].url
     except AssertionError as message:
-        print(message)
+        logger.error(message)
         exit(1)
 
 
 def download_book(book_url, output_folder):
+
+    ffmpeg_log_level = 'fatal'
+    if logger.level == logging.DEBUG:
+        ffmpeg_log_level = '‘debug'
+    elif logger.level == logging.INFO:
+        ffmpeg_log_level = 'info'
+    elif logger.level == logging.WARNING:
+        ffmpeg_log_level = 'warning'
+    elif logger.level == logging.ERROR:
+        ffmpeg_log_level = 'error'
+
     # create output folder
     Path(output_folder).mkdir(exist_ok=True)
 
@@ -84,7 +101,8 @@ def download_book(book_url, output_folder):
 
     # download full audio file
     full_book_file_path = full_book_folder / book_json['title']
-    ffmpeg_command = ['ffmpeg', '-y', '-hide_banner', '-i', m3u8_url, f'{full_book_file_path}.mp3']
+    ffmpeg_command = ['ffmpeg', '-y', '-hide_banner', '-loglevel', ffmpeg_log_level,
+                      '-i', m3u8_url, f'{full_book_file_path}.mp3']
     subprocess.run(ffmpeg_command)
 
     # separate audio file into chapters
@@ -92,13 +110,15 @@ def download_book(book_url, output_folder):
         chapter_path = book_folder / sanitize_filename(chapter['title'])
 
         # cut the chapter
-        command_cut = ['ffmpeg', '-y', '-hide_banner', '-i', f'{full_book_file_path}.mp3', '-codec', 'copy',
+        command_cut = ['ffmpeg', '-y', '-hide_banner', '-loglevel', ffmpeg_log_level,
+                       '-i', f'{full_book_file_path}.mp3', '-codec', 'copy',
                        '-ss', str(chapter['time_from_start']), '-to', str(chapter['time_finish']),
                        f'{chapter_path}_no_meta.mp3']
         subprocess.run(command_cut)
 
         # add metadata
-        command_metadata = ['ffmpeg', '-y', '-hide_banner', '-i', f'{chapter_path}_no_meta.mp3']
+        command_metadata = ['ffmpeg', '-y', '-hide_banner', '-loglevel', ffmpeg_log_level,
+                            '-i', f'{chapter_path}_no_meta.mp3']
         if Path(cover_file_name).exists():
             command_metadata = command_metadata + ['-i', cover_file_name, '-map', '0:0', '-map', '1:0']
         command_metadata = command_metadata + ['-codec', 'copy', '-id3v2_version', '3',
@@ -112,15 +132,16 @@ def download_book(book_url, output_folder):
 
     # remove full book folder
     shutil.rmtree(full_book_folder, ignore_errors=True)
-    print('The book has been downloaded: {0}'.format(book_folder))
+    logger.info('The book has been downloaded: {0}'.format(book_folder))
     return book_folder
 
 
 if __name__ == '__main__':
+    logger.setLevel(logging.INFO)
     parser = argparse.ArgumentParser(description='Download a book from akniga.org')
     parser.add_argument('url', help='Book\'s url for downloading')
     parser.add_argument('output', help='Absolute or relative path where book will be downloaded')
     args = parser.parse_args()
-    print(args)
+    logger.info(args)
 
     download_book(args.url, args.output)

@@ -1,0 +1,2 @@
+-r requirements_CLI.txt
+python-telegram-bot

@@ -1,0 +1,3 @@
+TOKEN = "YourToken"
+work_path = "/var/spool/akniga-raider/"
+message_substring = "https://akniga.org"
