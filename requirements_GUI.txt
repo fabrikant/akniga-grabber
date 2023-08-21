@@ -1,3 +1,2 @@
 -r requirements_CLI.txt
--r requirements_GUI.txt
--r requirements_bot.txt
+PyQt5
