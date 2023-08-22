@@ -12,12 +12,6 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from seleniumwire import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 
-# logging.basicConfig(
-#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-# )
-# logging.basicConfig(
-#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-# )
 logger = logging.getLogger(__name__)
 
 
