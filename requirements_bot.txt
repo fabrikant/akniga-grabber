@@ -1,2 +1,2 @@
 -r requirements_CLI.txt
-python-telegram-bot
+python-telegram-bot[job-queue]
