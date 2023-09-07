@@ -194,6 +194,7 @@ def create_work_dirs(output_folder, book_json, book_soup):
 
 def download_book(book_url, output_folder):
 
+    logger.info('start downloading book: {0}'.format(book_url))
     # create output folder
     Path(output_folder).mkdir(exist_ok=True)
 
@@ -222,6 +223,18 @@ def download_book(book_url, output_folder):
     return book_folder
 
 
+def parse_series(series_url, output_folder):
+    logger.info('the series has been discovered')
+    res = requests.get(series_url)
+    if res.status_code == 200:
+        series_soup = BeautifulSoup(res.text, 'html.parser')
+        bs_links_soup = (series_soup.find('div',{'class':'content__main__articles'}).
+                findAll('a', {'class':'content__article-main-link tap-link'}))
+        for bs_link_soup in bs_links_soup:
+            download_book(bs_link_soup['href'], output_folder)
+    else:
+        logger.error('code: {0} while downloading: {url_string}'.format(res.status_code, series_url))
+
 if __name__ == '__main__':
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -232,4 +245,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     logger.info(args)
 
-    download_book(args.url, args.output)
+    if '/series/' in args.url:
+        parse_series(args.url, args.output)
+    else:
+        download_book(args.url, args.output)
