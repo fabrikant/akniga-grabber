@@ -116,12 +116,18 @@ def create_mp3_with_metadata(chapter, no_meta_filename, book_folder, tmp_folder,
     chapter_path = book_folder / sanitize_filename('{0}.mp3'.format(chapter['title']))
     logger.info('create mp3 with metadata: {0}'.format(chapter_path))
     command_metadata = ffmpeg_common_command() + ['-i', no_meta_filename]
+    book_performer = BeautifulSoup(book_json['sTextPerformer'], 'html.parser').find('a').find('span').get_text()
     if Path(cover_filename).exists():
         command_metadata = command_metadata + ['-i', cover_filename, '-map', '0:0', '-map', '1:0']
     command_metadata = command_metadata + ['-codec', 'copy', '-id3v2_version', '3',
                                            '-metadata', 'title=' + chapter['title'],
                                            '-metadata', 'album=' + book_json['titleonly'],
                                            '-metadata', 'artist=' + book_json['author'],
+                                           '-metadata', 'composer=' + book_json['author'],
+                                           '-metadata', 'album_artist=' + book_performer,
+                                           '-metadata', 'TOPE=' + book_performer,
+                                           '-metadata', 'track={0:0>3}/{1:0>3}'.
+                                           format(chapter['chapter_number'], chapter['number_of_chapters']),
                                            chapter_path]
     subprocess.run(command_metadata)
     os.remove(no_meta_filename) # remove no_meta file
@@ -133,8 +139,12 @@ def download_book_by_mp3_url(mp3_url, book_folder, tmp_folder, book_json):
     url_pattern_path = '{0}/'.format('/'.join(mp3_url.split('/')[0:-1]))
     url_pattern_filename = '.'+'.'.join(mp3_filename.split('.')[1:])
     count = 0
+    chapter_count = 0
     chapters = json.loads(book_json['items'])
     for chapter in chapters:
+        chapter_count += 1
+        chapter['chapter_number'] = chapter_count
+        chapter['number_of_chapters'] = len(chapters)
         filename = None
         # download new file
         if count != chapter['file']:
@@ -162,8 +172,13 @@ def download_book_by_m3u8(m3u8_url, book_folder, tmp_folder, book_json):
     full_book_filename = tmp_folder / 'full_book.mp3'
     ffmpeg_command = ffmpeg_common_command() + ['-i', m3u8_url, full_book_filename]
     subprocess.run(ffmpeg_command)
+    chapter_count = 0
     # separate audio file into chapters
-    for chapter in json.loads(book_json['items']):
+    items = json.loads(book_json['items'])
+    for chapter in items:
+        chapter_count += 1
+        chapter['chapter_number'] = chapter_count
+        chapter['number_of_chapters'] = len(items)
         no_meta_filename = cut_the_chapter(chapter, full_book_filename, book_folder)
         create_mp3_with_metadata(chapter, no_meta_filename, book_folder, tmp_folder, book_json)
 
