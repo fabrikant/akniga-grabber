@@ -53,17 +53,17 @@ def download_cover(book_json, tmp_folder):
     return cover_filename
 
 
-def find_mp3_url(book_html):
+def find_mp3_url(book_soup):
     url_mp3 = None
     logger.info('try to parse html')
-    soup = BeautifulSoup(book_html, 'html.parser')
     attr_name = 'src'
-    for audio_tag in soup.findAll('audio'):
+    for audio_tag in book_soup.findAll('audio'):
         if 'src' in audio_tag.attrs:
             url_mp3 = audio_tag.attrs[attr_name]
             logger.info('find mp3 url: {0}'.format(url_mp3))
             break
     return url_mp3
+
 
 def get_book_requests(book_url: str) -> list:
     logger.info("Getting book requests. Please wait...")
@@ -72,10 +72,10 @@ def get_book_requests(book_url: str) -> list:
     options.add_argument('headless')
     with webdriver.Chrome(service=service, options=options) as driver:
         driver.get(book_url)
-        requests = driver.requests
+        book_requests = driver.requests
         html = driver.page_source
         driver.close()
-        return requests, html
+        return book_requests, html
 
 
 def analyse_book_requests(book_requests: list) -> tuple:
@@ -168,12 +168,21 @@ def download_book_by_m3u8(m3u8_url, book_folder, tmp_folder, book_json):
         create_mp3_with_metadata(chapter, no_meta_filename, book_folder, tmp_folder, book_json)
 
 
-def create_work_dirs(output_folder, book_json):
+def create_work_dirs(output_folder, book_json, book_soup):
     # sanitize (make valid) book title
     book_json['title'] = sanitize_filename(book_json['title'])
     book_json['titleonly'] = sanitize_filename(book_json['titleonly'])
     book_json['author'] = sanitize_filename(book_json['author'])
     book_folder = Path(output_folder) / book_json['author'] / book_json['titleonly']
+
+    bs_series = book_soup.findAll('div',{'class':'caption__article--about-block about--series'})
+    if len(bs_series) == 1:
+        series_name = bs_series[0].find('a').find('span').get_text().split('(')
+        if len(series_name) == 2:
+            book_json['series_name'] = sanitize_filename(series_name[0].strip(' '))
+            book_json['series_number'] = series_name[1].split(')')[0].strip(' ')
+            if len(book_json['series_name']) > 0:
+                book_folder = Path(output_folder) / book_json['author'] / book_json['series_name'] / book_json['titleonly']
     # create new folder with book title
     Path(book_folder).mkdir(exist_ok=True, parents=True)
     # create tmp folder. It will be removed
@@ -190,14 +199,15 @@ def download_book(book_url, output_folder):
 
     book_requests, book_html = get_book_requests(book_url)
     book_json, m3u8_url = analyse_book_requests(book_requests)
-    book_folder, tmp_folder = create_work_dirs(output_folder, book_json)
+    book_soup = BeautifulSoup(book_html, 'html.parser')
+    book_folder, tmp_folder = create_work_dirs(output_folder, book_json, book_soup)
 
     # download cover picture
     download_cover(book_json, tmp_folder)
 
-    # playlist not found. try to parse http
-    if m3u8_url is None:
-        mp3_url = find_mp3_url(book_html)
+    if m3u8_url is None: # playlist not found.
+        # try to parse html
+        mp3_url = find_mp3_url(book_soup)
         if mp3_url is None:
             logger.error('mp3 url not found')
             exit(1)
