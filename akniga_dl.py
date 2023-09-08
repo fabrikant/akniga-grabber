@@ -138,6 +138,7 @@ def download_book_by_mp3_url(mp3_url, book_folder, tmp_folder, book_json):
     # url_pattern_path = mp3_url.replace(mp3_filename, '')
     url_pattern_path = '{0}/'.format('/'.join(mp3_url.split('/')[0:-1]))
     url_pattern_filename = '.'+'.'.join(mp3_filename.split('.')[1:])
+    filename = None
     count = 0
     chapter_count = 0
     chapters = json.loads(book_json['items'])
@@ -145,7 +146,6 @@ def download_book_by_mp3_url(mp3_url, book_folder, tmp_folder, book_json):
         chapter_count += 1
         chapter['chapter_number'] = chapter_count
         chapter['number_of_chapters'] = len(chapters)
-        filename = None
         # download new file
         if count != chapter['file']:
             count = chapter['file']
