@@ -125,6 +125,8 @@ def create_mp3_with_metadata(chapter, no_meta_filename, book_folder, tmp_folder,
                                            '-metadata', 'artist=' + book_json['author'],
                                            '-metadata', 'composer=' + book_json['author'],
                                            '-metadata', 'album_artist=' + book_performer,
+                                           '-metadata', 'comment=',
+                                           '-metadata', 'encoded_by=',
                                            '-metadata', 'TOPE=' + book_performer,
                                            '-metadata', 'track={0:0>3}/{1:0>3}'.
                                            format(chapter['chapter_number'], chapter['number_of_chapters']),
