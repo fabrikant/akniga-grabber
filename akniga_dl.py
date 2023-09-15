@@ -202,15 +202,14 @@ def create_work_dirs(output_folder, book_json, book_soup):
     book_json['author'] = sanitize_filename(book_json['author'])
     book_folder = Path(output_folder) / book_json['author'] / book_json['titleonly']
 
-    bs_series = book_soup.findAll('div',{'class':'caption__article--about-block about--series'})
+    bs_series = book_soup.findAll('div', {'class': 'caption__article--about-block about--series'})
     if len(bs_series) == 1:
         series_name = bs_series[0].find('a').find('span').get_text().split('(')
         if len(series_name) == 2:
             book_json['series_name'] = sanitize_filename(series_name[0].strip(' '))
             book_json['series_number'] = series_name[1].split(')')[0].strip(' ')
             if len(book_json['series_name']) > 0:
-                book_folder = (Path(output_folder) / book_json['author'] / book_json['series_name']
-                               / book_json['title only'])
+                book_folder = Path(output_folder) / book_json['author'] / book_json['series_name'] / book_json['titleonly']
     # create new folder with book title
     Path(book_folder).mkdir(exist_ok=True, parents=True)
     # create tmp folder. It will be removed
