@@ -55,12 +55,12 @@ def download_cover(book_json, tmp_folder):
 
 def find_mp3_url(book_soup):
     url_mp3 = None
-    logger.info('try to parse html')
+    logger.debug('try to parse html')
     attr_name = 'src'
     for audio_tag in book_soup.findAll('audio'):
         if 'src' in audio_tag.attrs:
             url_mp3 = audio_tag.attrs[attr_name]
-            logger.info('find mp3 url: {0}'.format(url_mp3))
+            logger.info(f'find mp3 url: {url_mp3}')
             break
     return url_mp3
 
@@ -79,7 +79,7 @@ def get_book_requests(book_url: str) -> list:
 
 
 def analyse_book_requests(book_requests: list) -> tuple:
-    logger.info('Analysing book requests...')
+    logger.debug('Analysing book requests...')
     try:
         # find request with book json data
         book_json_requests = [r for r in book_requests if r.method == 'POST' and r.path.startswith('/ajax/b/')]
@@ -94,7 +94,7 @@ def analyse_book_requests(book_requests: list) -> tuple:
             logger.info('m3u8 file found')
             m3u8url = m3u8_file_requests[0].url
         else:
-            logger.info('m3u8 file NOT found')
+            logger.warning('m3u8 file NOT found')
         return book_json, m3u8url
     except AssertionError as message:
         logger.error(message)
@@ -102,9 +102,9 @@ def analyse_book_requests(book_requests: list) -> tuple:
 
 
 def cut_the_chapter(chapter, input_file, output_folder):
-    output_file = output_folder / sanitize_filename('no_meta_{0}.mp3'.format(chapter['title']))
-    logger.info('cut the chapter {0} from file {1} time from start {2} time finish {3}'.
-                format(chapter['title'], input_file, str(chapter['time_from_start']), str(chapter['time_finish'])))
+    output_file = output_folder / sanitize_filename(f'no_meta_{chapter["title"]}.mp3')
+    logger.debug(f'cut the chapter {chapter["title"]} from file {input_file} time from '
+                f'start {str(chapter["time_from_start"])} time finish {str(chapter["time_finish"])}')
     command_cut = (ffmpeg_common_command() + ['-i', input_file, '-codec', 'copy',
                     '-ss', str(chapter['time_from_start']), '-to', str(chapter['time_finish']), output_file])
     subprocess.run(command_cut)
@@ -113,31 +113,41 @@ def cut_the_chapter(chapter, input_file, output_folder):
 
 def create_mp3_with_metadata(chapter, no_meta_filename, book_folder, tmp_folder, book_json):
     cover_filename = get_cover_filename(tmp_folder)
-    chapter_path = book_folder / sanitize_filename('{0}.mp3'.format(chapter['title']))
-    logger.info('create mp3 with metadata: {0}'.format(chapter_path))
+    chapter_path = book_folder / sanitize_filename(f'{chapter["title"]}.mp3')
+    logger.debug(f'create mp3 with metadata: {chapter_path}')
     command_metadata = ffmpeg_common_command() + ['-i', no_meta_filename]
-    book_performer = BeautifulSoup(book_json['sTextPerformer'], 'html.parser').find('a').find('span').get_text()
+    book_performer = ''
+    if 'sTextPerformer' in book_json.keys():
+        book_performer = BeautifulSoup(book_json['sTextPerformer'], 'html.parser').find('a')
+        if book_performer is None:
+            book_performer = ''
+        else:
+            book_performer = book_performer.find('span')
+            if book_performer is None:
+                book_performer = ''
+            else:
+                book_performer = book_performer.get_text()
     if Path(cover_filename).exists():
         command_metadata = command_metadata + ['-i', cover_filename, '-map', '0:0', '-map', '1:0']
     command_metadata = command_metadata + ['-codec', 'copy', '-id3v2_version', '3',
-                                           '-metadata', 'title=' + chapter['title'],
-                                           '-metadata', 'album=' + book_json['titleonly'],
-                                           '-metadata', 'artist=' + book_json['author'],
-                                           '-metadata', 'composer=' + book_json['author'],
-                                           '-metadata', 'album_artist=' + book_performer,
+                                           '-metadata', f'title={chapter["title"]}',
+                                           '-metadata', f'album={book_json["titleonly"]}',
+                                           '-metadata', f'artist={book_json["author"]}',
+                                           '-metadata', f'composer={book_json["author"]}',
+                                           '-metadata', f'album_artist={book_performer}',
                                            '-metadata', 'comment=',
                                            '-metadata', 'encoded_by=',
-                                           '-metadata', 'TOPE=' + book_performer,
+                                           '-metadata', f'TOPE={book_performer}',
                                            '-metadata', 'track={0:0>3}/{1:0>3}'.
                                            format(chapter['chapter_number'], chapter['number_of_chapters']),
                                            chapter_path]
     subprocess.run(command_metadata)
-    os.remove(no_meta_filename) # remove no_meta file
+    # remove no_meta file
+    os.remove(no_meta_filename)
 
 
 def download_book_by_mp3_url(mp3_url, book_folder, tmp_folder, book_json):
     mp3_filename = mp3_url.split('/')[-1]
-    # url_pattern_path = mp3_url.replace(mp3_filename, '')
     url_pattern_path = '{0}/'.format('/'.join(mp3_url.split('/')[0:-1]))
     url_pattern_filename = '.'+'.'.join(mp3_filename.split('.')[1:])
     filename = None
@@ -157,14 +167,14 @@ def download_book_by_mp3_url(mp3_url, book_folder, tmp_folder, book_json):
                 str_count = '{:0>2}'.format(count)
             filename = tmp_folder / (str_count + url_pattern_filename)
             url_string = url_pattern_path+urllib.parse.quote(str_count+url_pattern_filename)
-            logger.info('try to download file: '+url_string)
+            logger.debug('try to download file: '+url_string)
             res = requests.get(url_string, stream=True)
             if res.status_code == 200:
                 with open(filename, 'wb') as f:
                     shutil.copyfileobj(res.raw, f)
-                logger.info('file has been downloaded and saved as: {0}'.format(filename))
+                logger.info(f'file has been downloaded and saved as: {filename}')
             else:
-                logger.error('code: {0} while downloading: {url_string}'.format(res.status_code, url_string))
+                logger.error(f'code: {res.status_code} while downloading: {url_string}')
                 exit(1)
         no_meta_filename = cut_the_chapter(chapter, filename, tmp_folder)
         create_mp3_with_metadata(chapter, no_meta_filename, book_folder, tmp_folder, book_json)
@@ -199,7 +209,8 @@ def create_work_dirs(output_folder, book_json, book_soup):
             book_json['series_name'] = sanitize_filename(series_name[0].strip(' '))
             book_json['series_number'] = series_name[1].split(')')[0].strip(' ')
             if len(book_json['series_name']) > 0:
-                book_folder = Path(output_folder) / book_json['author'] / book_json['series_name'] / book_json['titleonly']
+                book_folder = (Path(output_folder) / book_json['author'] / book_json['series_name']
+                               / book_json['title only'])
     # create new folder with book title
     Path(book_folder).mkdir(exist_ok=True, parents=True)
     # create tmp folder. It will be removed
@@ -211,7 +222,7 @@ def create_work_dirs(output_folder, book_json, book_soup):
 
 def download_book(book_url, output_folder):
 
-    logger.info('start downloading book: {0}'.format(book_url))
+    logger.debug(f'start downloading book: {book_url}')
     # create output folder
     Path(output_folder).mkdir(exist_ok=True)
 
@@ -234,7 +245,7 @@ def download_book(book_url, output_folder):
     else: # it's ordinary case
         download_book_by_m3u8(m3u8_url, book_folder, tmp_folder, book_json)
 
-    logger.info('The book has been downloaded: {0}'.format(book_folder))
+    logger.info(f'The book has been downloaded: {book_folder}')
     # remove full book folder
     shutil.rmtree(tmp_folder, ignore_errors=True)
     return book_folder
@@ -250,7 +261,7 @@ def parse_series(series_url, output_folder):
         for bs_link_soup in bs_links_soup:
             download_book(bs_link_soup['href'], output_folder)
     else:
-        logger.error('code: {0} while downloading: {url_string}'.format(res.status_code, series_url))
+        logger.error(f'code: {res.status_code} while downloading: {series_url}')
 
 if __name__ == '__main__':
     logging.basicConfig(
