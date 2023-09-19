@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>img/download_for_offline_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/download_for_offline_FILL0_wght400_GRAD0_opsz24.png</iconset>
+  </property>
   <widget class="QTextBrowser" name="textConsole">
    <property name="geometry">
     <rect>

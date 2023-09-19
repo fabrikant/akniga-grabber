@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>akniga.org downloader</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>img/menu_book_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/menu_book_FILL0_wght400_GRAD0_opsz24.png</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_2">
     <item row="0" column="0">
@@ -43,7 +47,7 @@
         <item row="3" column="0">
          <widget class="QLabel" name="labelPath">
           <property name="text">
-           <string>Path</string>
+           <string>Путь</string>
           </property>
          </widget>
         </item>
@@ -63,18 +67,22 @@
         <item row="3" column="2">
          <widget class="QPushButton" name="buttonOpenPath">
           <property name="text">
-           <string>Open directory</string>
+           <string>Выбрать каталог</string>
           </property>
           <property name="icon">
-           <iconset theme="Open">
-            <normaloff>../../</normaloff>../../</iconset>
+           <iconset>
+            <normaloff>img/folder_open_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/folder_open_FILL0_wght400_GRAD0_opsz24.png</iconset>
           </property>
          </widget>
         </item>
         <item row="4" column="2">
          <widget class="QPushButton" name="buttonDownload">
           <property name="text">
-           <string>Start download</string>
+           <string>Скачать</string>
+          </property>
+          <property name="icon">
+           <iconset>
+            <normaloff>img/download_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/download_FILL0_wght400_GRAD0_opsz24.png</iconset>
           </property>
          </widget>
         </item>
@@ -94,7 +102,11 @@
         <item row="0" column="2">
          <widget class="QPushButton" name="buttonPaste">
           <property name="text">
-           <string>Paste from clipboard</string>
+           <string>Вставить из буфера</string>
+          </property>
+          <property name="icon">
+           <iconset>
+            <normaloff>img/content_paste_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/content_paste_FILL0_wght400_GRAD0_opsz24.png</iconset>
           </property>
          </widget>
         </item>
@@ -113,18 +125,18 @@
      <x>0</x>
      <y>0</y>
      <width>530</width>
-     <height>20</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="File">
     <property name="title">
-     <string>File</string>
+     <string>Файл</string>
     </property>
     <addaction name="actionExit"/>
    </widget>
    <widget class="QMenu" name="Window">
     <property name="title">
-     <string>Window</string>
+     <string>Окно</string>
     </property>
     <addaction name="actionNext"/>
     <addaction name="actionPrevious"/>
@@ -135,31 +147,51 @@
    <addaction name="Window"/>
   </widget>
   <action name="actionExit">
+   <property name="icon">
+    <iconset>
+     <normaloff>img/close_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/close_FILL0_wght400_GRAD0_opsz24.png</iconset>
+   </property>
    <property name="text">
-    <string>Exit</string>
+    <string>Закрыть программу</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+X</string>
    </property>
   </action>
   <action name="actionNext">
+   <property name="icon">
+    <iconset>
+     <normaloff>img/navigate_next_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/navigate_next_FILL0_wght400_GRAD0_opsz24.png</iconset>
+   </property>
    <property name="text">
-    <string>Next</string>
+    <string>Следующее</string>
    </property>
   </action>
   <action name="actionPrevious">
+   <property name="icon">
+    <iconset>
+     <normaloff>img/navigate_before_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/navigate_before_FILL0_wght400_GRAD0_opsz24.png</iconset>
+   </property>
    <property name="text">
-    <string>Previous</string>
+    <string>Предыдущее</string>
    </property>
   </action>
   <action name="actionCascade">
+   <property name="icon">
+    <iconset>
+     <normaloff>img/table_view_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/table_view_FILL0_wght400_GRAD0_opsz24.png</iconset>
+   </property>
    <property name="text">
-    <string>Cascade</string>
+    <string>Каскадом</string>
    </property>
   </action>
   <action name="actionTile">
+   <property name="icon">
+    <iconset>
+     <normaloff>img/grid_view_FILL0_wght400_GRAD0_opsz24.png</normaloff>img/grid_view_FILL0_wght400_GRAD0_opsz24.png</iconset>
+   </property>
    <property name="text">
-    <string>Tile</string>
+    <string>Плиткой</string>
    </property>
   </action>
  </widget>

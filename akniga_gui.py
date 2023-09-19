@@ -12,7 +12,7 @@ class MainWindow(QMainWindow):
         self.processes = []
 
     def onButtonOpenPathClick(self):
-        path = QFileDialog.getExistingDirectory(self, caption='Open directory')
+        path = QFileDialog.getExistingDirectory(self, caption='Выбрать каталог')
         self.linePath.setText(path)
 
     def onButtonDownloadClick(self):

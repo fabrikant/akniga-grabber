@@ -29,7 +29,7 @@ class ProcessWindow(QMdiSubWindow):
 
     def on_finished(self):
         exitcode = self.process.exitCode()
-        self.textConsole.append("Process finished with exit code: {0}".format(exitcode))
+        self.textConsole.append("Процесс завершен с кодом: {0}".format(exitcode))
         if exitcode == 0:
             self.textConsole.append("Path: {0}".format(self.path))
 
