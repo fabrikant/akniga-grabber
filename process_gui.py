@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
 from PyQt5.QtCore import QProcess
+from PyQt5.QtGui import QTextCursor
 
 
 class ProcessWindow(QMdiSubWindow):
@@ -13,19 +14,18 @@ class ProcessWindow(QMdiSubWindow):
         uic.loadUi('ui/process.ui', self)
         self.manage_form()
 
-    def on_stdout(self):
-        data = self.process.readAllStandardOutput()
+    def print_message(self, data):
         stdout = bytes(data).decode("utf8")
-        stdout = stdout.replace("\r\r","\r")
         if not "" == stdout:
-            self.textConsole.append(stdout)
+            self.textConsole.moveCursor(QTextCursor.End)
+            self.textConsole.insertPlainText(stdout)
+            self.textConsole.moveCursor(QTextCursor.End)
+
+    def on_stdout(self):
+        self.print_message(self.process.readAllStandardOutput())
 
     def on_stderr(self):
-        data = self.process.readAllStandardError()
-        stderr = bytes(data).decode("utf8")
-        stderr = stderr.replace("\r\r","\r")
-        if not "" == stderr:
-            self.textConsole.append(stderr)
+        self.print_message(self.process.readAllStandardError())
 
     def on_finished(self):
         exitcode = self.process.exitCode()
