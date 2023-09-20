@@ -5,3 +5,6 @@ selenium_wire==5.1.0
 webdriver_manager==4.0.0
 requests~=2.31.0
 beautifulsoup4
+tqdm
+pycryptodome
+m3u8

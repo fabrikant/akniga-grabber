@@ -14,8 +14,17 @@ from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import urllib.parse
 
+from Crypto.Cipher import AES
+import m3u8  # type:ignore
+import tqdm
 
 logger = logging.getLogger(__name__)
+
+NAMING_DEEP = 'deep'
+NAMING_WIDE = 'wide'
+NAMING_ID = 'id'
+DOWNLOAD_REQUESTS = 'requests'
+DOWNLOAD_FFMPEG = 'ffmpeg'
 
 
 def ffmpeg_common_command():
@@ -60,13 +69,13 @@ def find_mp3_url(book_soup):
     for audio_tag in book_soup.findAll('audio'):
         if 'src' in audio_tag.attrs:
             url_mp3 = audio_tag.attrs[attr_name]
-            logger.info(f'find mp3 url: {url_mp3}')
+            logger.warning(f'find mp3 url: {url_mp3}')
             break
     return url_mp3
 
 
 def get_book_requests(book_url: str) -> list:
-    logger.info("Getting book requests. Please wait...")
+    logger.warning("Getting book requests. Please wait...")
     service = ChromeService(executable_path=ChromeDriverManager().install())
     options = webdriver.ChromeOptions()
     options.add_argument('headless')
@@ -85,13 +94,13 @@ def analyse_book_requests(book_requests: list) -> tuple:
         book_json_requests = [r for r in book_requests if r.method == 'POST' and r.path.startswith('/ajax/b/')]
         # assert that we have only 1 request for book data found
         assert len(book_json_requests) == 1, 'Error: Book data not found. Exiting.'
-        logger.info('Book data found')
+        logger.warning('Book data found')
         book_json = json.loads(brotli.decompress(book_json_requests[0].response.body))
         # find request with m3u8 file
         m3u8_file_requests = [r for r in book_requests if 'm3u8' in r.url]
         m3u8url = None
         if len(m3u8_file_requests) == 1:
-            logger.info('m3u8 file found')
+            logger.warning('m3u8 file found')
             m3u8url = m3u8_file_requests[0].url
         else:
             logger.warning('m3u8 file NOT found')
@@ -172,7 +181,7 @@ def download_book_by_mp3_url(mp3_url, book_folder, tmp_folder, book_json):
             if res.status_code == 200:
                 with open(filename, 'wb') as f:
                     shutil.copyfileobj(res.raw, f)
-                logger.info(f'file has been downloaded and saved as: {filename}')
+                logger.warning(f'file has been downloaded and saved as: {filename}')
             else:
                 logger.error(f'code: {res.status_code} while downloading: {url_string}')
                 exit(1)
@@ -180,10 +189,11 @@ def download_book_by_mp3_url(mp3_url, book_folder, tmp_folder, book_json):
         create_mp3_with_metadata(chapter, no_meta_filename, book_folder, tmp_folder, book_json)
 
 
-def download_book_by_m3u8(m3u8_url, book_folder, tmp_folder, book_json):
-    full_book_filename = tmp_folder / 'full_book.mp3'
-    ffmpeg_command = ffmpeg_common_command() + ['-i', m3u8_url, full_book_filename]
-    subprocess.run(ffmpeg_command)
+def full_book_tmp_filename(tmp_folder):
+    return tmp_folder / 'full_book.mp3'
+
+
+def post_processing(book_folder, tmp_folder, book_json):
     chapter_count = 0
     # separate audio file into chapters
     items = json.loads(book_json['items'])
@@ -191,27 +201,71 @@ def download_book_by_m3u8(m3u8_url, book_folder, tmp_folder, book_json):
         chapter_count += 1
         chapter['chapter_number'] = chapter_count
         chapter['number_of_chapters'] = len(items)
-        no_meta_filename = cut_the_chapter(chapter, full_book_filename, book_folder)
+        no_meta_filename = cut_the_chapter(chapter, full_book_tmp_filename(tmp_folder), book_folder)
         create_mp3_with_metadata(chapter, no_meta_filename, book_folder, tmp_folder, book_json)
 
 
-def create_work_dirs(output_folder, book_json, book_soup):
-    # sanitize (make valid) book title
-    book_json['title'] = sanitize_filename(book_json['title'])
-    book_json['titleonly'] = sanitize_filename(book_json['titleonly'])
-    book_json['author'] = sanitize_filename(book_json['author'])
-    book_folder = Path(output_folder) / book_json['author'] / book_json['titleonly']
+def download_book_by_m3u8_with_requests(m3u8_url, book_folder, tmp_folder, book_json):
+    def get_key(url: str) -> bytes:
+        resp = requests.get(url)
+        assert resp.status_code == 200, 'Could not fetch decryption key.'
+        return resp.content
 
-    bs_series = book_soup.findAll('div', {'class': 'caption__article--about-block about--series'})
-    if len(bs_series) == 1:
-        series_name = bs_series[0].find('a').find('span').get_text().split('(')
-        if len(series_name) == 2:
-            book_json['series_name'] = sanitize_filename(series_name[0].strip(' '))
-            book_json['series_number'] = series_name[1].split(')')[0].strip(' ')
-            if len(book_json['series_name']) > 0:
-                book_folder = Path(output_folder) / book_json['author'] / book_json['series_name'] / book_json['titleonly']
+    def make_cipher_for_segment(segment):
+        key = get_key(segment.key.absolute_uri)
+        iv = bytes.fromhex(segment.key.iv.lstrip('0x'))
+        return AES.new(key, AES.MODE_CBC, IV=iv)
+
+    segments = m3u8.load(m3u8_url).segments
+    stream_path = (tmp_folder / 'stream.ts')
+    with open(stream_path, mode='wb') as file:
+        bar_format = 'Downloading segment {n}/{total} [{elapsed}]'
+        for segment in tqdm.tqdm(segments, bar_format=bar_format):
+            cipher = make_cipher_for_segment(segment)
+            for chunk in requests.get(segment.absolute_uri, stream=True):
+                file.write(cipher.decrypt(chunk))
+
+    ffmpeg_command = ffmpeg_common_command() + ['-i', stream_path, full_book_tmp_filename(tmp_folder)]
+    subprocess.run(ffmpeg_command)
+    post_processing(book_folder, tmp_folder, book_json)
+
+
+def download_book_by_m3u8_with_ffmpeg(m3u8_url, book_folder, tmp_folder, book_json):
+    ffmpeg_command = ffmpeg_common_command() + ['-i', m3u8_url, full_book_tmp_filename(tmp_folder)]
+    subprocess.run(ffmpeg_command)
+    post_processing(book_folder, tmp_folder, book_json)
+
+
+def create_work_dirs(output_folder, book_json, book_soup, book_url, naming):
+    if naming == NAMING_ID:
+        book_folder = Path(output_folder) / sanitize_filename(book_url.strip('/').split('/')[-1])
+    else:
+        # sanitize (make valid) book title
+        book_json['title'] = sanitize_filename(book_json['title'])
+        book_json['titleonly'] = sanitize_filename(book_json['titleonly'])
+        book_json['author'] = sanitize_filename(book_json['author'])
+        if naming == NAMING_DEEP:
+            book_folder = Path(output_folder) / book_json['author'] / book_json['titleonly']
+        else:
+            book_folder = Path(output_folder) / f'{book_json["author"]} - {book_json["titleonly"]}'
+
+        bs_series = book_soup.findAll('div', {'class': 'caption__article--about-block about--series'})
+        if len(bs_series) == 1:
+            series_name = bs_series[0].find('a').find('span').get_text().split('(')
+            if len(series_name) == 2:
+                book_json['series_name'] = sanitize_filename(series_name[0].strip(' '))
+                book_json['series_number'] = series_name[1].split(')')[0].strip(' ')
+                if len(book_json['series_name']) > 0:
+                    if naming == NAMING_DEEP:
+                        book_folder = (Path(output_folder) / book_json['author'] / book_json['series_name'] /
+                                       book_json['titleonly'])
+                    else:
+                        book_folder = Path(output_folder) / (f'{book_json["author"]} - {book_json["series_name"]} '
+                                                             f'- {book_json["titleonly"]}')
+
     # create new folder with book title
     Path(book_folder).mkdir(exist_ok=True, parents=True)
+
     # create tmp folder. It will be removed
     tmp_folder = book_folder / 'tmp'
     Path(tmp_folder).mkdir(exist_ok=True)
@@ -219,7 +273,7 @@ def create_work_dirs(output_folder, book_json, book_soup):
     return book_folder, tmp_folder
 
 
-def download_book(book_url, output_folder):
+def download_book(book_url, output_folder, download_method=download_book_by_m3u8_with_requests, naming=NAMING_DEEP):
 
     logger.debug(f'start downloading book: {book_url}')
     # create output folder
@@ -228,7 +282,7 @@ def download_book(book_url, output_folder):
     book_requests, book_html = get_book_requests(book_url)
     book_json, m3u8_url = analyse_book_requests(book_requests)
     book_soup = BeautifulSoup(book_html, 'html.parser')
-    book_folder, tmp_folder = create_work_dirs(output_folder, book_json, book_soup)
+    book_folder, tmp_folder = create_work_dirs(output_folder, book_json, book_soup, book_url, naming)
 
     # download cover picture
     download_cover(book_json, tmp_folder)
@@ -242,37 +296,48 @@ def download_book(book_url, output_folder):
         else:
             download_book_by_mp3_url(mp3_url, book_folder, tmp_folder, book_json)
     else: # it's ordinary case
-        download_book_by_m3u8(m3u8_url, book_folder, tmp_folder, book_json)
+        # download_book_by_m3u8_with_ffmpeg(m3u8_url, book_folder, tmp_folder, book_json)
+        download_method(m3u8_url, book_folder, tmp_folder, book_json)
 
-    logger.info(f'The book has been downloaded: {book_folder}')
+    logger.warning(f'The book has been downloaded: {book_folder}')
     # remove full book folder
     shutil.rmtree(tmp_folder, ignore_errors=True)
     return book_folder
 
 
-def parse_series(series_url, output_folder):
-    logger.info('the series has been discovered')
+def parse_series(series_url, output_folder, download_method=download_book_by_m3u8_with_requests, naming=NAMING_DEEP):
+    logger.warning('the series has been discovered')
     res = requests.get(series_url)
     if res.status_code == 200:
         series_soup = BeautifulSoup(res.text, 'html.parser')
-        bs_links_soup = (series_soup.find('div',{'class':'content__main__articles'}).
-                findAll('a', {'class':'content__article-main-link tap-link'}))
+        bs_links_soup = (series_soup.find('div', {'class':'content__main__articles'}).
+                findAll('a', {'class': 'content__article-main-link tap-link'}))
         for bs_link_soup in bs_links_soup:
-            download_book(bs_link_soup['href'], output_folder)
+            download_book(bs_link_soup['href'], output_folder, download_method, naming)
     else:
         logger.error(f'code: {res.status_code} while downloading: {series_url}')
 
+
 if __name__ == '__main__':
     logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.WARNING
     )
-    parser = argparse.ArgumentParser(description='Download a book from akniga.org')
-    parser.add_argument('url', help='Book\'s url for downloading')
-    parser.add_argument('output', help='Absolute or relative path where book will be downloaded')
+    parser = argparse.ArgumentParser(description='Загрузчик книг с сайта akniga.org')
+    parser.add_argument('-d','--download-method', default=DOWNLOAD_REQUESTS,
+                        choices=[DOWNLOAD_REQUESTS, DOWNLOAD_FFMPEG],
+                        help='Способ загрузки контента: с помощью отдельных запросов или ffmpeg')
+    parser.add_argument('-n','--naming', default=NAMING_DEEP, choices=[NAMING_DEEP, NAMING_WIDE, NAMING_ID],
+                        help=f'Имена для выходных каталогов: [{NAMING_DEEP}] - путь Автор/Серия/Название; '
+                             f'[{NAMING_WIDE}] - каталог Автор-Серия-Название; '
+                             f'[{NAMING_ID}] - каталог с идентификатором из url')
+    parser.add_argument('url', help='Адрес (url) страницы с книгой или серией книг')
+    parser.add_argument('output', help='Путь к папке загрузки')
     args = parser.parse_args()
     logger.info(args)
 
+    download_method = download_book_by_m3u8_with_ffmpeg if args.download_method == DOWNLOAD_FFMPEG \
+        else download_book_by_m3u8_with_requests
     if '/series/' in args.url:
-        parse_series(args.url, args.output)
+        parse_series(args.url, args.output, download_method, args.naming)
     else:
-        download_book(args.url, args.output)
+        download_book(args.url, args.output, download_method, args.naming)
